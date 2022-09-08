@@ -1,0 +1,229 @@
+---
+title: "Web scraping in R"
+author: "H33M"
+date: "`r Sys.Date()`"
+output: html_document
+---
+ What is Web Scraping?
+Web scraping is a technique for converting the data present in unstructured format (HTML tags) over the web to the structured format which can easily be accessed and used.
+*rvest library* is famous for web scraping and harvesting data from a web page. 
+## Scraping a web page in R
+install and load the rvest library package.
+```{r load the package}
+#install using install.packages("rvest")
+library(rvest)# load the package
+```
+in order to start parsing that data, first request it from the computer server that contains it.
+in rvest package function that serves this purpose is the *read_html function*. read_html function takes a web URL as an argument.
+```{r read the html}
+simple <- read_html("https://dataquestio.github.io/web-scraping-pages/simple.html")
+simple
+```
+*read_html function* returns a list containing the html and css structures.
+in order to capture the _text_ use the *html_text function* while the _html tags_ use the *html_nodes function*. the html tags are shown in our text using the <p> tags.
+```{r capture the text and tags}
+simple %>% 
+  html_nodes("p") %>% 
+  html_text()
+```
+Once we have all of these nodes, we can pass the output of html_nodes() into the html_text() function. We needed to get the actual text of the <p> tag, so this function helps out with that.
+
+These functions together form the bulk of many common web scraping tasks. In general, web scraping in R (or in any other language) boils down to the following three steps:
+
+1. Get the HTML for the web page that you want to scrape
+2. Decide what part of the page you want to read and find out what HTML/CSS you need to select it
+3. Select the HTML and analyze it in the way you need
+
+Web scraping on a national weather service website as shown below.
+```{r web scraping weather service website}
+forecasts<- read_html("https://forecast.weather.gov/MapClick.php?lat=37.7771&lon=-122.4196#.Xl0j6BNKhTY") %>% # load the web URL for scraping.
+  html_nodes(".temp") %>% # extract the html tags using html_nodes
+  html_text() #capture the text using html_text
+forecasts
+```
+Get the data into the format that we want or format that can be used. for example:
+```{r}
+library(readr)
+parse_number(forecasts) # extract the temparatures 
+```
+
+Scraping IMDb website for  100 most popular feature films released in 2016. Specify the web url using url variable as shown below.
+```{r IMDb web scraping}
+#specify the web url
+web_url <- "http://www.imdb.com/search/title?count=100&release_date=2016,2016&title_type=feature"
+#Reading the html from the website
+web_page <- read_html(web_url)
+```
+We'll scrap the following;
+rank, title, description, runtime, genre, rating, metascores, votes, gross_earned_in_mil, director, actor.
+Start by scraping the Rank field. Once you know the css selector that contains the rankings, use the codes below to extract the information for all rankings for these movies.
+```{r web scrap the rank field}
+rank_data <- web_page %>% 
+  html_nodes(".text-primary") %>% # extract html tags
+  html_text()
+rank_data %>% 
+  head()
+```
+convert the data into the format that is desirable. for this data, preprocess it into numeric data. 
+```{r convert into numeric data}
+rank_data <- as.numeric(rank_data)
+head(rank_data)
+```
+do the same for title. Start by checking the css selector for title.
+```{r web scraping for title section}
+title_data <- web_page %>%  html_nodes(".lister-item-header a") %>% 
+  html_text()
+title_data %>% 
+  head()
+```
+web scraping and data preprocessing for description.
+```{r web scraping for description}
+# web scraping
+desc_data <-web_page %>%  
+  html_nodes(".ratings-bar+ .text-muted") %>% 
+  html_text()
+#data preprocessing
+desc_data <- gsub("\n"," ", desc_data)
+head(desc_data)
+```
+
+web scraping for Runtime, genre,  Rating, Metascore, Votes, Gross_Earning_in_Mil , Director and Actor data.
+```{r web scraping runtime section}
+## web scraping the runtime section
+
+runtime_data <-web_page %>%
+  html_nodes('.text-muted .runtime') %>% 
+  html_text()
+#preprocess the data
+runtime_data <- gsub("min", " ", runtime_data)
+runtime_data <- as.numeric(runtime_data)
+head(runtime_data)
+```
+
+```{r web scraping genre section}
+## web scraping the Genre section
+genre_data <- web_page %>% 
+  html_nodes(".genre") %>% 
+  html_text()
+# preprocess the data
+# remove \n
+genre_data<- gsub("\n", " ", genre_data)
+# remove extra spaces
+genre_data <- gsub(" ", "", genre_data)
+# taking the first genre only
+genre_data<- gsub(",.*", " ", genre_data)
+#convert to factors
+genre_data<- as.factor(genre_data)
+head(genre_data)
+
+```
+```{r web scraping the rating section}
+#web scraping the rating section
+rating_data <- web_page %>% 
+  html_nodes(".ratings-imdb-rating strong") %>% 
+  html_text()
+#preprocessing the data for use
+rating_data<- as.numeric(rating_data)
+head(rating_data)
+```
+```{r scraping the votes section}
+votes_data<- web_page %>% 
+  html_nodes(".sort-num_votes-visible span:nth-child(2)") %>% 
+  html_text()
+# preprocess the data
+#remove commas
+votes_data <- gsub(",", "", votes_data)
+#convert to numeric
+votes_data<- as.numeric(votes_data)
+head(votes_data)
+```
+```{r web scraping the director section}
+directors_data <- web_page %>%
+  html_nodes('.text-muted+ p a:nth-child(1)') %>%
+  html_text()
+# data preprocessing: converting into factor
+directors_data <- as.factor(directors_data)
+head(directors_data)
+
+```
+
+```{r web scraping the actor section}
+actor_data <- web_page %>% 
+  html_nodes('.lister-item-content .ghost+ a') %>%
+  html_text()
+#convert into factors
+actor_data <- as.factor(actor_data)
+head(actor_data)
+```
+```{r web scraping for metascore section}
+metascore_data <- web_page %>% 
+  html_nodes(".metascore") %>% 
+  html_text()
+#preprocess the data
+# remove extra space in the data
+metascore_data <- gsub(" ", "", metascore_data)
+length(metascore_data) # some data are missing for metascore_data therefore will need to be replaced with NAs.the positions without metascores are 63,66 and 24
+for(i in c(24,63,66)){
+  a<- metascore_data[1:(i-1)]
+  b <- metascore_data[i:length(metascore_data)]
+  metascore_data <- append(a, list("NA"))
+  metascore_data<- append(metascore_data, b)
+}
+#convert to numeric data
+metascore_data<- as.numeric(metascore_data)
+head(metascore_data)
+summary(metascore_data)
+```
+```{r gross earnings variable web scraping}
+gross_earning_data <- web_page %>% 
+  html_nodes('.ghost~ .text-muted+ span') %>% 
+  html_text()
+# data preprocessing
+# remove M
+gross_earning_data<- gsub("M","", gross_earning_data)
+#remove $ sign
+gross_earning_data <- substring(gross_earning_data,2,6 )
+
+length(gross_earning_data) # this variable have some missing data thus need to be replaced with NAs
+
+for(i in c(24, 37,51,58, 60, 63,65,66)){
+  a<- gross_earning_data[1:(i-1)]
+  b<- gross_earning_data[i:length(gross_earning_data)]
+  gross_earning_data<- append(a, list("NA"))
+  gross_earning_data<- append(gross_earning_data,b)
+}
+# convert into numeric
+gross_earning_data<- as.numeric(gross_earning_data)
+
+```
+Combine the eleven variables to form a data frame. 
+```{r combining the data to form a dataframe}
+movies_df <- data.frame(
+  Ranks= rank_data,
+  Title= title_data,
+  Description= desc_data,
+  Runtime= runtime_data,
+  Genre= genre_data,
+  Rating= rating_data,
+  Metascore= metascore_data,
+  Gross_Earning_in_mils= gross_earning_data,
+  Votes= votes_data,
+  Director= directors_data,
+  Actor= actor_data
+)
+View(movies_df)
+```
+Analysing the scraped data can also be done as follows.
+```{r Analysing the scraped data}
+library(ggplot2)
+#plot the Runtime filled with Genre
+qplot(data = movies_df, Runtime, fill= Genre, bins = 30)
+#which movie from which genre have the longest runtime
+ggplot(data = movies_df, aes(x= Runtime, y= Rating))+ 
+  geom_point(aes(size= Votes, color= Genre))
+#in the Runtime of 130-160 mins, which genre has the highest votes?
+ggplot(data= movies_df, aes(x= Runtime, y= Gross_Earning_in_mils))+
+  geom_point(aes(size = Rating, color= Genre))
+```
+
+
