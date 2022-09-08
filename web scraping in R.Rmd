@@ -212,6 +212,8 @@ movies_df <- data.frame(
   Actor= actor_data
 )
 View(movies_df)
+#write the file into .csv type
+vroom::vroom_write(movies_df, "Movies.csv")
 ```
 Analysing the scraped data can also be done as follows.
 ```{r Analysing the scraped data}
